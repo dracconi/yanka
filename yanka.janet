@@ -1,7 +1,7 @@
 (def uri
   '{:main (sequence 
             (capture (sequence "http" (? "s") "://") :proto)
-            (capture (some (choice :w ".")) :host)
+            (capture (* :w (any (choice :w "." "+" "-"))) :host)
             (? (sequence ":" (capture (some :d))))
             (capture (any (choice :w "/" "-")) :path))})
 
