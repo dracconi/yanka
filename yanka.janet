@@ -1,6 +1,8 @@
+(import "build/ssl")
+
 (def uri
   '{:main (sequence 
-            (capture (sequence "http" (? "s") "://") :proto)
+            (capture (sequence "http" (? "s")) :proto) "://"
             (capture (* :w (any (choice :w "." "+" "-"))) :host)
             (? (sequence ":" (capture (some :d))))
             (capture (any (choice :w "/" "-")) :path))})
@@ -25,12 +27,27 @@
   (if-let [ix (index-of k tup false)]
     (get tup (+ 1 ix)) nil))
 
-(defn- exchange
+(defn- exchange-cleartext
   "Exchange data over TCP."
   [host port data]
   (when-with [s (net/connect host port :stream)]
     (net/write s data)
-    (ev/read (net/flush s 0) 4000)))
+    (ev/read (net/flush s 0) 4096)))
+
+(defn exchange-secure
+  [host port data]
+  (let [s (ssl/wrap (net/connect host port :stream))]
+    (net/flush (ssl/socket s) 1)
+    (ssl/write s data)
+    (net/flush (ssl/socket s) 1)
+    (let [b (ssl/read s 4096)]
+      (net/close (ssl/close s))
+      b)))
+
+(defn- exchange
+  [host port tls? data]
+  (cond tls? (exchange-secure host port data)
+        (exchange-cleartext host port data)))
 
 (defn- format-headers 
   "Synthesize headers in the text header."
@@ -40,11 +57,18 @@
          (pairs headers))
     "\n"))
 
+(defn default-headers
+  [host]
+  @{
+   "Host" host
+   "Accept" "*/*"
+  })
+
 (defn- synth-req 
   "Assembles message"
-  [typ path headers body]
+  [typ host path headers body]
   (string/join [
-    (string/join [(string/ascii-upper typ) path "HTTP/1.1"] " ")
+    (string/join [(string/ascii-upper typ) (cond (> (length path) 0) path "/") "HTTP/1.1"] " ")
     (format-headers headers)
     ""
     body
@@ -66,11 +90,18 @@
   (let [url (peg/match uri urll)]
     (parse-response (exchange
                       (in url 1)
-                      (cond (> (length url) 3) (in url 2) 80)
+                      (cond (> (length url) 3) (in url 2)
+                            (cond
+                              (= (in url 0) "https") 443 80))
+                      (cond
+                        (= (in url 0) "https") true
+                        (= (in url 0) "http") false
+                        (error "Wrong protocol."))
                       (synth-req
                         typ
+                        (in url 1)
                         (cond (> (length url) 3) (in url 3) (in url 2)) 
-                        (or (get-tuple args :headers) @{})
+                        (or (get-tuple args :headers) (default-headers (in url 1)))
                         (or (get-tuple args :body) ""))))))
 
 (defn -
@@ -102,3 +133,5 @@
   "Send HTTP options request."
   [url &opt & args]
   (make-req :options url args))
+
+(ssl/init)

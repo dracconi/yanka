@@ -66,6 +66,8 @@ static Janet cfun_wrap(int32_t argc, Janet *argv) {
 		ERR_print_errors_fp(stderr);
 		janet_panicf("SSL Handshake failed\n");
 	}
+	en = 0;
+	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
 
 	return janet_wrap_pointer(sc);
 }
