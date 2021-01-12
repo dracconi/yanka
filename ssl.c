@@ -30,7 +30,7 @@ SSL_CTX *ctx;
 
 static Janet cfun_write(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 2);
-	SecureConn *sc = janet_getpointer(argv, 0);
+	SecureConn *sc = janet_unwrap_abstract(argv[0]);
 	int ret = 0;
 	if (janet_checktype(argv[1], JANET_BUFFER)) {
 		JanetBuffer *buf = janet_getbuffer(argv, 1);
@@ -46,7 +46,7 @@ static Janet cfun_write(int32_t argc, Janet *argv) {
 }
 static Janet cfun_read(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 2);
-	SecureConn *sc = janet_getpointer(argv, 0);
+	SecureConn *sc = janet_unwrap_abstract(argv[0]);
 	JanetBuffer *buf = janet_buffer(janet_getinteger(argv, 1));
 	int ret = SSL_read(sc->sec, buf->data, buf->capacity);
 	if (ret < 0) {
@@ -55,11 +55,26 @@ static Janet cfun_read(int32_t argc, Janet *argv) {
 	buf->count = ret;
 	return janet_wrap_buffer(buf);
 }
+
+const JanetAbstractType secure_socket_type = {
+	"ssl/socket",
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
 static Janet cfun_wrap(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 2);
-	SecureConn *sc = janet_smalloc(sizeof(SecureConn));
+	SecureConn *sc = janet_abstract(&secure_socket_type, sizeof(SecureConn));
 	sc->stream = janet_unwrap_abstract(argv[0]); 
-	janet_gcroot(janet_wrap_abstract(sc->stream));
 	sc->sec = SSL_new(ctx);
 	char en = 1;
 	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
@@ -84,23 +99,22 @@ static Janet cfun_wrap(int32_t argc, Janet *argv) {
 	en = 0;
 	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
 
-	return janet_wrap_pointer(sc);
+	return janet_wrap_abstract(sc);
 }
 static Janet cfun_close(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 1);
-	SecureConn *sc = janet_getpointer(argv, 0);
+	SecureConn *sc = janet_unwrap_abstract(argv[0]);
 	JanetStream *st = sc->stream;
 #ifndef JANET_WINDOWS
 	fcntl(st->handle, F_SETFL, fcntl(st->handle, F_GETFL) & ~O_NONBLOCK);
 #endif
 	SSL_free(sc->sec);
-	janet_sfree(sc);
 	return janet_wrap_abstract(st);
 }
 
 static Janet cfun_socket(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 1);
-	SecureConn *sc = janet_getpointer(argv, 0);
+	SecureConn *sc = janet_unwrap_abstract(argv[0]);
 	return janet_wrap_abstract(sc->stream);
 }
 
