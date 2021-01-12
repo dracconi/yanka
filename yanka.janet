@@ -36,7 +36,7 @@
 
 (defn exchange-secure
   [host port data]
-  (let [s (ssl/wrap (net/connect host port :stream))]
+  (let [s (ssl/wrap (net/connect host port :stream) host)]
     (net/flush (ssl/socket s) 1)
     (ssl/write s data)
     (net/flush (ssl/socket s) 1)

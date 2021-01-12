@@ -50,10 +50,13 @@ static Janet cfun_read(int32_t argc, Janet *argv) {
 	return janet_wrap_buffer(buf);
 }
 static Janet cfun_wrap(int32_t argc, Janet *argv) {
-	janet_fixarity(argc, 1);
+	janet_fixarity(argc, 2);
 	SecureConn *sc = janet_smalloc(sizeof(SecureConn));
 	sc->stream = janet_unwrap_abstract(argv[0]); 
 	sc->sec = SSL_new(ctx);
+	if (SSL_set_tlsext_host_name(sc->sec, janet_getcstring(argv, 1)) != 1) {
+		printf("TLSEXT Error");
+	}
 
 	if (SSL_set_fd(sc->sec, sc->stream->handle) != 1) {
 		janet_panic("Couldn't set file descriptor of SSL");
