@@ -23,7 +23,9 @@
 
 (declare-native
   :name "ssl"
-  :lflags [;default-lflags "libcrypto.lib" "libssl.lib" "Ws2_32.lib"]
+  :lflags (cond is-win 
+                [;default-lflags "libcrypto.lib" "libssl.lib" "Ws2_32.lib"]
+                 [;default-lflags "-lcrypto" "-lssl"])
   :source @["ssl.c"])
   
 (declare-source

@@ -8,6 +8,9 @@
 #include <winsock.h>
 #else
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h> /* superset of previous */
+#include <netinet/tcp.h>
 #endif
 
 typedef struct {
