@@ -45,9 +45,12 @@ static Janet cfun_write(int32_t argc, Janet *argv) {
 	return janet_wrap_integer(ret);
 }
 static Janet cfun_read(int32_t argc, Janet *argv) {
-	janet_fixarity(argc, 2);
+	janet_arity(argc, 2, 4);
 	SecureConn *sc = janet_unwrap_abstract(argv[0]);
-	JanetBuffer *buf = janet_buffer(janet_getinteger(argv, 1));
+	JanetBuffer *buf = janet_optbuffer(argv, argc, 2, janet_getinteger(argv, 1));
+	if (janet_optinteger(argv, argc, 3, -1) > -1) {
+		select(1, &sc->stream->handle, NULL, NULL, janet_getinteger(argv, 3));
+	}
 	int ret = SSL_read(sc->sec, buf->data, buf->capacity);
 	if (ret < 0) {
 		janet_panic("SSL Read failed!");

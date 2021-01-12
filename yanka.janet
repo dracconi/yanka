@@ -27,12 +27,19 @@
   (if-let [ix (index-of k tup false)]
     (get tup (+ 1 ix)) nil))
 
+(defn exhaust-response
+  [acc fun sock bufsize timeout]
+  (let [res (fun sock bufsize (buffer/new bufsize) timeout)
+        app (string acc res)]
+    (cond (< (length res) bufsize) app 
+          (exhaust-response app fun sock bufsize timeout))))
+
 (defn- exchange-cleartext
   "Exchange data over TCP."
   [host port data]
   (when-with [s (net/connect host port :stream)]
     (net/write s data)
-    (ev/read (net/flush s 0) 4096)))
+    (exhaust-response "" ev/read (net/flush s 0) 4096 1)))
 
 (defn exchange-secure
   [host port data]
@@ -40,7 +47,7 @@
     (net/flush (ssl/socket s) 1)
     (ssl/write s data)
     (net/flush (ssl/socket s) 1)
-    (let [b (ssl/read s 4096)]
+    (let [b (exhaust-response "" ssl/read s 4096 1)]
       (net/close (ssl/close s))
       b)))
 
