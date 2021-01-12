@@ -11,7 +11,10 @@
 #include <netinet/in.h>
 #include <netinet/ip.h> /* superset of previous */
 #include <netinet/tcp.h>
+#include <fcntl.h>
 #endif
+
+
 
 typedef struct {
 	JanetStream* stream;
@@ -56,7 +59,11 @@ static Janet cfun_wrap(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 2);
 	SecureConn *sc = janet_smalloc(sizeof(SecureConn));
 	sc->stream = janet_unwrap_abstract(argv[0]); 
+	janet_gcroot(janet_wrap_abstract(sc->stream));
 	sc->sec = SSL_new(ctx);
+	char en = 1;
+	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
+	
 	if (SSL_set_tlsext_host_name(sc->sec, janet_getcstring(argv, 1)) != 1) {
 		printf("TLSEXT Error");
 	}
@@ -64,13 +71,15 @@ static Janet cfun_wrap(int32_t argc, Janet *argv) {
 	if (SSL_set_fd(sc->sec, sc->stream->handle) != 1) {
 		janet_panic("Couldn't set file descriptor of SSL");
 	}
+#ifndef JANET_WINDOWS
+	// Disabled non-blocking IO, because it fucks with OpenSSL
+	fcntl(sc->stream->handle, F_SETFL, fcntl(sc->stream->handle, F_GETFL) & ~O_NONBLOCK);
+#endif
 
-	char en = 1;
-	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
 	int ret = SSL_connect(sc->sec);
 	if (ret != 1) {
 		ERR_print_errors_fp(stderr);
-		janet_panicf("SSL Handshake failed\n");
+		janet_panicf("SSL Handshake failed %d\n", SSL_get_error(sc->sec, ret));
 	}
 	en = 0;
 	setsockopt(sc->stream->handle, IPPROTO_TCP, TCP_NODELAY, &en, 1);
@@ -81,6 +90,9 @@ static Janet cfun_close(int32_t argc, Janet *argv) {
 	janet_fixarity(argc, 1);
 	SecureConn *sc = janet_getpointer(argv, 0);
 	JanetStream *st = sc->stream;
+#ifndef JANET_WINDOWS
+	fcntl(st->handle, F_SETFL, fcntl(st->handle, F_GETFL) & ~O_NONBLOCK);
+#endif
 	SSL_free(sc->sec);
 	janet_sfree(sc);
 	return janet_wrap_abstract(st);
