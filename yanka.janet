@@ -1,4 +1,4 @@
-(import "build/ssl")
+(import "yanka-ssl")
 
 (def uri
   '{:main (sequence 
@@ -43,12 +43,12 @@
 
 (defn exchange-secure
   [host port data]
-  (let [s (ssl/wrap (net/connect host port :stream) host)]
-    (net/flush (ssl/socket s) 1)
-    (ssl/write s data)
-    (net/flush (ssl/socket s) 1)
-    (let [b (exhaust-response "" ssl/read s 4096 1)]
-      (net/close (ssl/close s))
+  (let [s (yanka-ssl/wrap (net/connect host port :stream) host)]
+    (net/flush (yanka-ssl/socket s) 1)
+    (yanka-ssl/write s data)
+    (net/flush (yanka-ssl/socket s) 1)
+    (let [b (exhaust-response "" yanka-ssl/read s 4096 1)]
+      (net/close (yanka-ssl/close s))
       b)))
 
 (defn- exchange
@@ -141,4 +141,4 @@
   [url &opt & args]
   (make-req :options url args))
 
-(ssl/init)
+(yanka-ssl/init)

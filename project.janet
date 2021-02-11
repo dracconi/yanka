@@ -22,11 +22,11 @@
   :description "Native HTTP client for Janet.")
 
 (declare-native
-  :name "ssl"
+  :name "yanka-ssl"
   :lflags (cond is-win 
                 [;default-lflags "libcrypto.lib" "libssl.lib" "Ws2_32.lib"]
                  [;default-lflags "-lcrypto" "-lssl"])
-  :source @["ssl.c"])
+  :source @["yanka-ssl.c"])
   
 (declare-source
   :source @["yanka.janet"])
